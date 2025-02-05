@@ -1,11 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
-
-	"github.com/charliekim2/songsleuths/db"
 )
 
 type game struct {
