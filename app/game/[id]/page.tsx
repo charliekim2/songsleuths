@@ -1,9 +1,9 @@
-import CreateGame from "@/components/CreateGame";
+import SubmitSongs from "@/components/SubmitSongs";
 
 export default function Home() {
   return (
     <div className="flex flex-col gap-8 py-8">
-      <CreateGame />
+      <SubmitSongs />
     </div>
   );
 }

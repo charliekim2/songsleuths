@@ -10,8 +10,7 @@ import (
 )
 
 type Player struct {
-	gorm.Model
-	Name  string  `gorm:"not null"`
+	ID    string  `gorm:"primarykey"` // Firebase UID
 	Games []*Game `gorm:"many2many:player_games;"`
 
 	// One-to-many relationships
