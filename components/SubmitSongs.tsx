@@ -10,6 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +48,23 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+function YouTubeEmbed({ url }: { url: string }) {
+  const videoId = url.split("v=")[1];
+  if (!videoId) {
+    return <Card className="w-full aspect-video bg-black border-black"></Card>;
+  }
+  return (
+    <div className="w-full aspect-video">
+      <iframe
+        src={`https://www.youtube.com/embed/${videoId}`}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        className="w-full h-full"
+      />
+    </div>
+  );
+}
 
 export default function SubmitSongs() {
   const canvasRef = useRef<ReactCanvasDraw>(null);
@@ -126,6 +150,20 @@ export default function SubmitSongs() {
                   )}
                 />
               ))}
+              <div className="mt-4 mx-10">
+                <h3 className="text-lg font-semibold mb-2">Song Previews</h3>
+                <Carousel>
+                  <CarouselContent>
+                    {fields.map((_, index) => (
+                      <CarouselItem key={index} className="max-w-60 mx-auto">
+                        <YouTubeEmbed url={form.watch(`songs.${index}.url`)} />
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious />
+                  <CarouselNext />
+                </Carousel>
+              </div>
               <FormField
                 name="drawing"
                 render={() => (
@@ -133,31 +171,46 @@ export default function SubmitSongs() {
                     <FormLabel>Draw yourself! (optional)</FormLabel>
                     <FormControl>
                       <div className="space-y-2">
-                        <div className="flex space-x-2">
+                        <div className="flex flex-col sm:flex-row space-x-2">
                           <div className="flex-grow">
                             <ReactCanvasDraw
                               ref={canvasRef}
                               brushColor={brushColor}
                               brushRadius={brushRadius}
                               backgroundColor="#FFFFFF"
-                              canvasWidth={400}
+                              canvasWidth={300}
                               canvasHeight={300}
                               lazyRadius={0}
                               className="border border-gray-600 rounded-md"
                               onChange={() => (submitDrawing = true)}
                             />
                           </div>
-                          <div className="w-20 space-y-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-400 mb-1">
-                                Color
-                              </label>
-                              <Input
-                                type="color"
-                                value={brushColor}
-                                onChange={(e) => setBrushColor(e.target.value)}
-                                className="w-full h-8 p-1 bg-gray-700 border-gray-600"
-                              />
+                          <div className="w-72 space-y-4">
+                            <div className="flex space-x-4 items-end">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">
+                                  Color
+                                </label>
+                                <Input
+                                  type="color"
+                                  value={brushColor}
+                                  onChange={(e) =>
+                                    setBrushColor(e.target.value)
+                                  }
+                                  className="w-full h-8 p-1 bg-gray-700 border-gray-600"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  canvasRef.current?.clear();
+                                  submitDrawing = false;
+                                }}
+                                className="w-full bg-gray-700 text-white hover:bg-gray-600"
+                              >
+                                Clear
+                              </Button>
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-400 mb-1">
@@ -174,17 +227,6 @@ export default function SubmitSongs() {
                                 className="w-full"
                               />
                             </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                canvasRef.current?.clear();
-                                submitDrawing = false;
-                              }}
-                              className="w-full bg-gray-700 text-white hover:bg-gray-600"
-                            >
-                              Clear
-                            </Button>
                           </div>
                         </div>
                       </div>
