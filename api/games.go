@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/charliekim2/songsleuths/db"
+	"github.com/charliekim2/songsleuths/utils"
 )
 
 type game struct {
@@ -16,8 +17,14 @@ type game struct {
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	status := 405
+	status := http.StatusMethodNotAllowed
 	err := errors.New("Invalid request method")
+
+	_, err = utils.Authenticate(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
 
 	if r.Method == http.MethodPost {
 		status, err = post(w, r)
@@ -33,12 +40,12 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 	var g game
 	err := json.NewDecoder(r.Body).Decode(&g)
 	if err != nil {
-		return 400, err
+		return http.StatusBadRequest, err
 	}
 
 	conn, err := db.Connect()
 	if err != nil {
-		return 500, err
+		return http.StatusInternalServerError, err
 	}
 
 	dbGame := db.Game{
@@ -49,16 +56,13 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 
 	err = conn.Create(&dbGame).Error
 	if err != nil {
-		return 400, err
+		return http.StatusBadRequest, err
 	}
 
 	g.ID = dbGame.ID
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	err = json.NewEncoder(w).Encode(g)
-	if err != nil {
-		return 500, err
-	}
-	return 201, nil
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(g)
+	return http.StatusCreated, nil
 }

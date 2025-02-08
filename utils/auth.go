@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ import (
 func NewAuth() (*auth.Client, error) {
 	app, err := firebase.NewApp(context.Background(), nil, option.WithCredentialsJSON([]byte(os.Getenv("FIREBASE_JSON"))))
 	if err != nil {
+		log.Print(err)
 		return nil, err
 	}
 
@@ -41,6 +43,7 @@ func Authenticate(r *http.Request) (string, error) {
 
 	token, err := client.VerifyIDToken(context.Background(), idToken)
 	if err != nil {
+		log.Print(err)
 		return "", err
 	}
 

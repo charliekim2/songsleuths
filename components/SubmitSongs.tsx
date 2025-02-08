@@ -31,7 +31,7 @@ import { Slider } from "@/components/ui/slider";
 import { useRef, useState } from "react";
 import ReactCanvasDraw from "react-canvas-draw";
 
-const youtubeUrlRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
+const youtubeUrlRegex = /^.*\?v=([A-Za-z0-9_\-]{11})&.*$/;
 
 const formSchema = z.object({
   nickname: z
@@ -234,6 +234,7 @@ export default function SubmitSongs() {
                   </FormItem>
                 )}
               />
+              <br />
               <Button
                 type="submit"
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white"
