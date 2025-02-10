@@ -24,9 +24,10 @@ type Game struct {
 	Players  []*Player `gorm:"many2many:player_games;"`
 	Deadline uint      `gorm:"not null"`
 	NSongs   uint      `gorm:"not null"`
+	Playlist string    `gorm:"not null"`
 
 	// One-to-many relationships - each game has exactly two tierlists
-	Guesslist   Tierlist `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE;"`
+	GuessList   Tierlist `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE;"`
 	RankingList Tierlist `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE;"`
 
 	// One-to-many relationship with submissions
@@ -55,10 +56,11 @@ type Tier struct {
 
 type Submission struct {
 	gorm.Model
-	PlayerID uint   `gorm:"not null"`
+	PlayerID string `gorm:"not null"`
 	GameID   string `gorm:"not null"`
 	Nickname string `gorm:"not null"`
 	Songs    []Song `gorm:"constraint:OnDelete:CASCADE;"`
+	Drawing  string `gorm:"not null"`
 
 	// Unique constraint to ensure one submission per player per game
 	UniqueSubmission string `gorm:"uniqueIndex:idx_player_game"`
@@ -67,7 +69,7 @@ type Submission struct {
 type Song struct {
 	gorm.Model
 	SubmissionID uint   `gorm:"not null"`
-	YoutubeLink  string `gorm:"not null"`
+	Spotify      string `gorm:"not null"`
 	GameID       string `gorm:"not null"` // Added to enforce unique songs per game
 
 	// Unique constraint to prevent duplicate songs in a game
@@ -79,10 +81,10 @@ type Song struct {
 
 type Ranking struct {
 	gorm.Model
-	PlayerID   uint `gorm:"not null"`
-	TierlistID uint `gorm:"not null"`
-	TierID     uint `gorm:"not null"`
-	SongID     uint `gorm:"not null"`
+	PlayerID   string `gorm:"not null"`
+	TierlistID uint   `gorm:"not null"`
+	TierID     uint   `gorm:"not null"`
+	SongID     uint   `gorm:"not null"`
 
 	// Unique constraint to ensure one ranking per player per song per tierlist
 	UniqueRanking string `gorm:"uniqueIndex:idx_player_tierlist_song"`
@@ -118,7 +120,7 @@ func (g *Game) BeforeCreate(tx *gorm.DB) error {
 	}
 
 	g.ID = id
-	g.Guesslist = Tierlist{Type: "guess"}
+	g.GuessList = Tierlist{Type: "guess"}
 	g.RankingList = Tierlist{Type: "ranking"}
 	// Populate RankingList with default tiers (S, A, B, C, D)
 	for i, tier := range []string{"S", "A", "B", "C", "D"} {
@@ -130,7 +132,7 @@ func (g *Game) BeforeCreate(tx *gorm.DB) error {
 
 func (s *Submission) BeforeCreate(tx *gorm.DB) error {
 	// Set the unique constraint value
-	s.UniqueSubmission = fmt.Sprintf("%d-%s", s.PlayerID, s.GameID)
+	s.UniqueSubmission = fmt.Sprintf("%s-%s", s.PlayerID, s.GameID)
 	return nil
 }
 
@@ -143,12 +145,12 @@ func (s *Song) BeforeCreate(tx *gorm.DB) error {
 
 	// Set the GameID and unique constraint value
 	s.GameID = submission.GameID
-	s.UniqueSong = fmt.Sprintf("%s-%s", s.GameID, s.YoutubeLink)
+	s.UniqueSong = fmt.Sprintf("%s-%s", s.GameID, s.Spotify)
 
 	// Check if the song already exists in this game
 	var count int64
 	if err := tx.Model(&Song{}).
-		Where("game_id = ? AND youtube_link = ? AND id != ?", s.GameID, s.YoutubeLink, s.ID).
+		Where("game_id = ? AND spotify = ? AND id != ?", s.GameID, s.Spotify, s.ID).
 		Count(&count).Error; err != nil {
 		return err
 	}
@@ -161,7 +163,7 @@ func (s *Song) BeforeCreate(tx *gorm.DB) error {
 
 func (r *Ranking) BeforeCreate(tx *gorm.DB) error {
 	// Set the unique constraint value
-	r.UniqueRanking = fmt.Sprintf("%d-%d-%d", r.PlayerID, r.TierlistID, r.SongID)
+	r.UniqueRanking = fmt.Sprintf("%s-%d-%d", r.PlayerID, r.TierlistID, r.SongID)
 
 	// Verify that the Tier belongs to the Tierlist
 	var count int64

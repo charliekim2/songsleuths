@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,6 +15,16 @@ type game struct {
 	Name     string `json:"name"`
 	Deadline uint   `json:"deadline"`
 	NSongs   uint   `json:"n_songs"`
+}
+
+type playlistRequest struct {
+	Name        string `json:"name"`
+	Public      bool   `json:"public"`
+	Description string `json:"description"`
+}
+
+type playlistResponse struct {
+	ID string `json:"id"`
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -48,10 +59,49 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
+	// TODO: Move this logic to spotify utility
+	tok, err := utils.RefreshToken()
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	playlist := playlistRequest{
+		Name:        g.Name,
+		Description: "Song Sleuths playlist for " + g.Name,
+		Public:      false,
+	}
+	body, err := json.Marshal(&playlist)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	req, err := http.NewRequest("POST", "https://api.spotify.com/v1/users/charliekim451/playlists", bytes.NewBuffer(body))
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+tok)
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return res.StatusCode, errors.New("Spotify rejected playlist creation request")
+	}
+	playlistId := playlistResponse{}
+	err = json.NewDecoder(res.Body).Decode(&playlistId)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
 	dbGame := db.Game{
 		Name:     g.Name,
 		Deadline: g.Deadline,
 		NSongs:   g.NSongs,
+		Playlist: playlistId.ID,
 	}
 
 	err = conn.Create(&dbGame).Error

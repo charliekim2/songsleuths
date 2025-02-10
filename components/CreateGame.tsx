@@ -35,9 +35,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { auth } from "@/components/auth";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 const formSchema = z
   .object({
@@ -68,15 +65,6 @@ const formSchema = z
 type FormData = z.infer<typeof formSchema>;
 
 export default function CreateGame() {
-  const router = useRouter();
-  useEffect(() => {
-    auth.onAuthStateChanged((user) => {
-      if (!user) {
-        router.push("/login");
-      }
-    });
-  }, []);
-
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
