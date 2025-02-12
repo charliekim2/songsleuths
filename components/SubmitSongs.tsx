@@ -10,13 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,11 +20,84 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Slider } from "@/components/ui/slider";
 import { useRef, useState } from "react";
 import ReactCanvasDraw from "react-canvas-draw";
+import { Search } from "lucide-react";
 
-const youtubeUrlRegex = /^.*\?v=([A-Za-z0-9_\-]{11})&.*$/;
+const dummySearchResults = [
+  { id: "1", title: "Song 1", artist: "Artist 1" },
+  { id: "2", title: "Song 2", artist: "Artist 2" },
+  { id: "3", title: "Song 3", artist: "Artist 3" },
+  { id: "4", title: "Song 4", artist: "Artist 4" },
+  { id: "5", title: "Song 5", artist: "Artist 5" },
+  { id: "6", title: "Song 6", artist: "Artist 6" },
+  { id: "7", title: "Song 7", artist: "Artist 7" },
+  { id: "8", title: "Song 8", artist: "Artist 8" },
+  { id: "9", title: "Song 9", artist: "Artist 9" },
+  { id: "10", title: "Song 10", artist: "Artist 10" },
+];
+interface SearchResults {
+  id: string;
+  title: string;
+  artist: string;
+  image: string;
+}
+
+function SearchDropdown({ onSelect }: { onSelect: (url: string) => void }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<typeof dummySearchResults>(
+    [],
+  );
+
+  const handleSearch = () => {
+    // In a real application, this would be an API call
+    setSearchResults(dummySearchResults);
+  };
+
+  return (
+    <div className="p-4 bg-gray-800 rounded-md w-full">
+      <div className="flex mb-4">
+        <Input
+          type="text"
+          placeholder="Search songs..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-grow mr-2 bg-gray-700 text-white"
+        />
+        <Button
+          onClick={handleSearch}
+          className="bg-purple-600 hover:bg-purple-700"
+        >
+          Search
+        </Button>
+      </div>
+      <ul className="space-y-2 max-h-60 overflow-y-auto">
+        {searchResults.map((result) => (
+          <DropdownMenuItem
+            key={result.id}
+            onSelect={() =>
+              onSelect(`https://open.spotify.com/track/${result.id}`)
+            }
+            className="cursor-pointer hover:bg-gray-700 focus:bg-gray-700"
+          >
+            <div className="font-semibold">{result.title}</div>
+            <div className="text-sm text-gray-400">{result.artist}</div>
+          </DropdownMenuItem>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const songUrlRegex =
+  /(?:https:\/\/open\.spotify\.com\/track\/|spotify:track:)([a-zA-Z0-9]{22})/;
 
 const formSchema = z.object({
   nickname: z
@@ -41,7 +107,7 @@ const formSchema = z.object({
   songs: z
     .array(
       z.object({
-        url: z.string().regex(youtubeUrlRegex, "Must be a valid YouTube URL"),
+        url: z.string().regex(songUrlRegex, "Must be a valid Spotify URL"),
       }),
     )
     .length(3, "You must submit exactly 3 songs"), // set to songNum from backend
@@ -49,19 +115,17 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-function YouTubeEmbed({ url }: { url: string }) {
-  const videoId = url.split("v=")[1];
-  if (!videoId) {
-    return <Card className="w-full aspect-video bg-black border-black"></Card>;
-  }
+function SongEmbed({ id }: { id: string }) {
   return (
-    <div className="w-full aspect-video">
+    <div className="w-full h-fit">
       <iframe
-        src={`https://www.youtube.com/embed/${videoId}`}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-        className="w-full h-full"
-      />
+        src={`https://open.spotify.com/embed/track/${id}?utm_source=generator`}
+        width="100%"
+        height="80"
+        allowFullScreen={false}
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        loading="lazy"
+      ></iframe>
     </div>
   );
 }
@@ -130,40 +194,61 @@ export default function SubmitSongs() {
                   </FormItem>
                 )}
               />
-              {fields.map((field, index) => (
-                <FormField
-                  key={field.id}
-                  control={form.control}
-                  name={`songs.${index}.url`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Song {index + 1} YouTube URL</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter YouTube URL"
-                          {...field}
-                          className="bg-gray-700 border-gray-600 text-white"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ))}
-              <div className="mt-4 mx-10">
-                <h3 className="text-lg font-semibold mb-2">Song Previews</h3>
-                <Carousel>
-                  <CarouselContent>
-                    {fields.map((_, index) => (
-                      <CarouselItem key={index} className="max-w-60 mx-auto">
-                        <YouTubeEmbed url={form.watch(`songs.${index}.url`)} />
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious />
-                  <CarouselNext />
-                </Carousel>
-              </div>
+              {fields.map((field, index) => {
+                const songId =
+                  form.watch(`songs.${index}.url`).match(songUrlRegex)?.[1] ??
+                  "";
+                return (
+                  <div key={field.id} className="space-y-2">
+                    <FormField
+                      key={field.id}
+                      control={form.control}
+                      name={`songs.${index}.url`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Song {index + 1} Spotify URL</FormLabel>
+                          <FormControl>
+                            <div className="flex items-center bg-gray-700 border border-gray-600 rounded-md relative">
+                              <Input
+                                placeholder="Enter Spotify URL"
+                                {...field}
+                                className="bg-transparent border-none text-white flex-grow pr-10"
+                              />
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-0 top-0 h-full aspect-square rounded-l-none"
+                                  >
+                                    <Search className="h-4 w-4" />
+                                    <span className="sr-only">
+                                      Search songs
+                                    </span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  className="w-[350px] bg-gray-800 border-gray-700"
+                                  align="end"
+                                >
+                                  <SearchDropdown
+                                    onSelect={(url) => {
+                                      form.setValue(`songs.${index}.url`, url);
+                                    }}
+                                  />
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {songId && <SongEmbed id={songId} />}
+                  </div>
+                );
+              })}
               <FormField
                 name="drawing"
                 render={() => (
