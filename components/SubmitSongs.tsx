@@ -31,34 +31,30 @@ import { useRef, useState } from "react";
 import ReactCanvasDraw from "react-canvas-draw";
 import { Search } from "lucide-react";
 
-const dummySearchResults = [
-  { id: "1", title: "Song 1", artist: "Artist 1" },
-  { id: "2", title: "Song 2", artist: "Artist 2" },
-  { id: "3", title: "Song 3", artist: "Artist 3" },
-  { id: "4", title: "Song 4", artist: "Artist 4" },
-  { id: "5", title: "Song 5", artist: "Artist 5" },
-  { id: "6", title: "Song 6", artist: "Artist 6" },
-  { id: "7", title: "Song 7", artist: "Artist 7" },
-  { id: "8", title: "Song 8", artist: "Artist 8" },
-  { id: "9", title: "Song 9", artist: "Artist 9" },
-  { id: "10", title: "Song 10", artist: "Artist 10" },
-];
 interface SearchResults {
   id: string;
-  title: string;
-  artist: string;
+  name: string;
+  album: string;
+  artists: string[];
   image: string;
 }
 
 function SearchDropdown({ onSelect }: { onSelect: (url: string) => void }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<typeof dummySearchResults>(
-    [],
-  );
+  const [searchResults, setSearchResults] = useState<SearchResults[]>([]);
 
-  const handleSearch = () => {
-    // In a real application, this would be an API call
-    setSearchResults(dummySearchResults);
+  const handleSearch = async () => {
+    try {
+      const res = await fetch("/api/spotify/search?q=" + searchTerm);
+      if (!res.ok) {
+        throw new Error("Failed to fetch search results");
+      }
+
+      const data = await res.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -87,8 +83,8 @@ function SearchDropdown({ onSelect }: { onSelect: (url: string) => void }) {
             }
             className="cursor-pointer hover:bg-gray-700 focus:bg-gray-700"
           >
-            <div className="font-semibold">{result.title}</div>
-            <div className="text-sm text-gray-400">{result.artist}</div>
+            <div className="font-semibold text-white">{result.name}</div>
+            <div className="text-sm text-gray-400">{result.artists}</div>
           </DropdownMenuItem>
         ))}
       </ul>

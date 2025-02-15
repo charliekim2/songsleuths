@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 )
 
 type tokenRequest struct {
@@ -92,22 +94,28 @@ func appToken() (string, error) {
 type SearchResult struct {
 	Tracks struct {
 		Items []struct {
-			ID     string `json:"id"`
-			Name   string `json:"name"`
-			Images []struct {
-				URL string `json:"url"`
-			}
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			Artists []struct {
+				Name string `json:"name"`
+			} `json:"artists"`
+			Album struct {
+				Name   string `json:"name"`
+				Images []struct {
+					URL string `json:"url"`
+				} `json:"images"`
+			} `json:"album"`
 		}
 	}
 }
 
-func Search(query string) (*SearchResult, error) {
+func Search(query string, limit int) (*SearchResult, error) {
 	token, err := appToken()
 	if err != nil {
 		return nil, err
 	}
 
-	url := "https://api.spotify.com/v1/search?q=" + query + "&type=track"
+	url := "https://api.spotify.com/v1/search?q=" + url.QueryEscape(query) + "&type=track&limit=" + strconv.Itoa(limit)
 	auth := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, nil)
