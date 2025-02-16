@@ -35,6 +35,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { auth } from "@/components/auth";
 
 const formSchema = z
   .object({
@@ -75,17 +76,34 @@ export default function CreateGame() {
     },
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     const combinedDeadline = new Date(data.deadline);
     const [hours, minutes] = data.deadlineTime.split(":");
     combinedDeadline.setHours(Number.parseInt(hours), Number.parseInt(minutes));
     const unixTimestamp = Math.floor(combinedDeadline.getTime() / 1000);
-    console.log({
-      gameTitle: data.gameTitle,
+    const gameData = {
+      name: data.gameTitle,
       deadline: unixTimestamp,
-      songCount: data.songCount,
-    });
-    console.log(unixTimestamp);
+      n_songs: data.songCount,
+    };
+    try {
+      const token = await auth.currentUser?.getIdToken(true);
+      const res = await fetch("/api/games", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(gameData),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to create game");
+      }
+      const game = await res.json();
+      console.log("Game created:", game);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (

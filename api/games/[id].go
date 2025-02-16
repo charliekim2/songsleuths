@@ -17,10 +17,16 @@ type Game struct {
 	Deadline uint   `json:"deadline"`
 	NSongs   uint   `json:"n_songs"`
 
+	// The requesting players submission
 	Submission *Submission `json:"submission,omitempty"`
+	// The other players who submitted
+	PlayerList []struct {
+		Nickname string `json:"nickname"`
+		Drawing  string `json:"drawing"`
+	} `json:"player_list,omitempty"`
 
-	GuessList   *Tierlist `json:"guess_list_id,omitempty"`
-	RankingList *Tierlist `json:"ranking_list_id,omitempty"`
+	GuessList   *Tierlist `json:"guess_list,omitempty"`
+	RankingList *Tierlist `json:"ranking_list,omitempty"`
 	Playlist    string    `json:"playlist,omitempty"`
 	Songs       []string  `json:"songs,omitempty"`
 }

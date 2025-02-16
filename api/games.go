@@ -11,7 +11,7 @@ import (
 )
 
 type game struct {
-	ID       string `json:"id"`
+	ID       string `json:"id,omitempty"`
 	Name     string `json:"name"`
 	Deadline uint   `json:"deadline"`
 	NSongs   uint   `json:"n_songs"`
@@ -31,12 +31,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusMethodNotAllowed
 	err := errors.New("Invalid request method")
 
-	_, err = utils.Authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
 	if r.Method == http.MethodPost {
 		status, err = post(w, r)
 	}
@@ -47,9 +41,13 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func post(w http.ResponseWriter, r *http.Request) (int, error) {
+	_, err := utils.Authenticate(r)
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
 
 	var g game
-	err := json.NewDecoder(r.Body).Decode(&g)
+	err = json.NewDecoder(r.Body).Decode(&g)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}

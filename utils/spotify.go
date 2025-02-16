@@ -8,33 +8,24 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
-
-type tokenRequest struct {
-	Grant   string `json:"grant_type"`
-	Refresh string `json:"refresh_token"`
-}
 
 type tokenResponse struct {
 	Token string `json:"access_token"`
 }
 
 func RefreshToken() (string, error) {
-	url := "https://accounts.spotify.com/api/token"
+	auth_url := "https://accounts.spotify.com/api/token"
 	auth := "Basic " + os.Getenv("BASE64_AUTH")
 	content := "application/x-www-form-urlencoded"
 
-	tr := tokenRequest{
-		Grant:   "refresh_token",
-		Refresh: os.Getenv("SPOTIFY_TOKEN"),
+	formData := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {os.Getenv("SPOTIFY_TOKEN")},
 	}
 
-	body, err := json.Marshal(&tr)
-	if err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", auth_url, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return "", err
 	}

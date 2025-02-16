@@ -30,6 +30,7 @@ import { Slider } from "@/components/ui/slider";
 import { useRef, useState } from "react";
 import ReactCanvasDraw from "react-canvas-draw";
 import { Search } from "lucide-react";
+import CountdownTimer from "./CountdownTimer";
 
 interface SearchResults {
   id: string;
@@ -126,7 +127,7 @@ function SongEmbed({ id }: { id: string }) {
   );
 }
 
-export default function SubmitSongs() {
+export default function SubmitSongs({ deadline }: { deadline: number }) {
   const canvasRef = useRef<ReactCanvasDraw>(null);
   const [brushColor, setBrushColor] = useState("#000000");
   const [brushRadius, setBrushRadius] = useState(2);
@@ -169,6 +170,8 @@ export default function SubmitSongs() {
           <CardDescription className="text-center text-gray-400">
             Submit your songs
           </CardDescription>
+          <br />
+          <CountdownTimer targetTimestamp={deadline} />
         </CardHeader>
         <CardContent>
           <Form {...form}>
