@@ -31,6 +31,7 @@ import { useRef, useState } from "react";
 import ReactCanvasDraw from "react-canvas-draw";
 import { Search } from "lucide-react";
 import CountdownTimer from "./CountdownTimer";
+import { auth } from "@/components/auth";
 
 interface SearchResults {
   id: string;
@@ -96,22 +97,6 @@ function SearchDropdown({ onSelect }: { onSelect: (url: string) => void }) {
 const songUrlRegex =
   /(?:https:\/\/open\.spotify\.com\/track\/|spotify:track:)([a-zA-Z0-9]{22})/;
 
-const formSchema = z.object({
-  nickname: z
-    .string()
-    .min(3, "Nickname must be at least 3 characters")
-    .max(10, "Nickname must be 10 characters or less"),
-  songs: z
-    .array(
-      z.object({
-        url: z.string().regex(songUrlRegex, "Must be a valid Spotify URL"),
-      }),
-    )
-    .length(3, "You must submit exactly 3 songs"), // set to songNum from backend
-});
-
-type FormData = z.infer<typeof formSchema>;
-
 function SongEmbed({ id }: { id: string }) {
   return (
     <div className="w-full h-fit">
@@ -127,7 +112,33 @@ function SongEmbed({ id }: { id: string }) {
   );
 }
 
-export default function SubmitSongs({ deadline }: { deadline: number }) {
+export default function SubmitSongs({
+  gameId,
+  title,
+  deadline,
+  numSongs,
+}: {
+  gameId: string;
+  title: string;
+  deadline: number;
+  numSongs: number;
+}) {
+  const formSchema = z.object({
+    nickname: z
+      .string()
+      .min(3, "Nickname must be at least 3 characters")
+      .max(10, "Nickname must be 10 characters or less"),
+    songs: z
+      .array(
+        z.object({
+          url: z.string().regex(songUrlRegex, "Must be a valid Spotify URL"),
+        }),
+      )
+      .length(numSongs, "You must submit exactly 3 songs"), // set to songNum from backend
+  });
+
+  type FormData = z.infer<typeof formSchema>;
+
   const canvasRef = useRef<ReactCanvasDraw>(null);
   const [brushColor, setBrushColor] = useState("#000000");
   const [brushRadius, setBrushRadius] = useState(2);
@@ -137,7 +148,7 @@ export default function SubmitSongs({ deadline }: { deadline: number }) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       nickname: "",
-      songs: [{ url: "" }, { url: "" }, { url: "" }], // set to songNum from backend
+      songs: Array(numSongs).fill({ url: "" }),
     },
   });
 
@@ -146,18 +157,38 @@ export default function SubmitSongs({ deadline }: { deadline: number }) {
     control: form.control,
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     // @ts-expect-error - getDataURL is not in the types
     const drawingDataUrl = canvasRef.current?.getDataURL(
       "png", // Export canvas data as PNG
       false, // Export canvas data without background image
       "#FFFFFF", // Background color
     );
-    console.log(submitDrawing);
-    console.log({
-      ...data,
+    const submitData = {
+      nickname: data.nickname,
+      songs: data.songs.map((song) => {
+        const matches = songUrlRegex.exec(song.url);
+        return matches ? matches[1] : "";
+      }),
       drawing: drawingDataUrl,
-    });
+    };
+    try {
+      const token = await auth.currentUser?.getIdToken(true);
+      const res = await fetch(`/api/submit/${gameId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(submitData),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to submit songs");
+      }
+      console.log("Submitted songs successfully");
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -165,7 +196,7 @@ export default function SubmitSongs({ deadline }: { deadline: number }) {
       <Card className="w-full max-w-2xl bg-gray-800 text-white">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-center text-purple-400">
-            Song Sleuths
+            {title}
           </CardTitle>
           <CardDescription className="text-center text-gray-400">
             Submit your songs

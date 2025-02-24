@@ -48,20 +48,23 @@ export default function CountdownTimer({
     return () => clearInterval(timer);
   }, [targetTimestamp, calculateTimeLeft]); // Added calculateTimeLeft to dependencies
 
-  const timeComponents = Object.keys(timeLeft).map((interval) => {
-    if (!timeLeft[interval as keyof TimeLeft]) {
-      return null;
-    }
-
-    return (
-      <div key={interval} className="flex flex-col items-center">
-        <span className="text-4xl font-bold">
-          {timeLeft[interval as keyof TimeLeft]}
-        </span>
-        <span className="text-sm text-gray-400">{interval}</span>
-      </div>
-    );
-  });
+  const timeComponents = Object.keys(timeLeft)
+    .filter((interval) => {
+      if (!timeLeft[interval as keyof TimeLeft]) {
+        return false;
+      }
+      return true;
+    })
+    .map((interval) => {
+      return (
+        <div key={interval} className="flex flex-col items-center">
+          <span className="text-4xl font-bold">
+            {timeLeft[interval as keyof TimeLeft]}
+          </span>
+          <span className="text-sm text-gray-400">{interval}</span>
+        </div>
+      );
+    });
 
   return (
     <Card className="bg-gray-800 text-white">

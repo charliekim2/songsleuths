@@ -51,7 +51,12 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-8 py-8">
       {loggedIn && game ? (
-        <SubmitSongs deadline={game.deadline} />
+        <SubmitSongs
+          gameId={game.id}
+          title={game.name}
+          deadline={game.deadline}
+          numSongs={game.n_songs}
+        />
       ) : (
         "loading..."
       )}

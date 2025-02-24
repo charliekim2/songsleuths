@@ -117,7 +117,7 @@ func get(w http.ResponseWriter, r *http.Request) (int, error) {
 		g.Playlist = game.Playlist
 	} else {
 		sub := &db.Submission{}
-		res = conn.Where(&db.Submission{PlayerID: uid, GameID: gid}).First(sub)
+		res = conn.Where(&db.Submission{PlayerID: uid, GameID: gid}).Preload("Songs").First(sub)
 		if res.Error == nil {
 			g.Submission = &Submission{
 				Songs:    []string{},
