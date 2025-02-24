@@ -158,12 +158,14 @@ export default function SubmitSongs({
   });
 
   const onSubmit = async (data: FormData) => {
-    // @ts-expect-error - getDataURL is not in the types
-    const drawingDataUrl = canvasRef.current?.getDataURL(
-      "png", // Export canvas data as PNG
-      false, // Export canvas data without background image
-      "#FFFFFF", // Background color
-    );
+    const drawingDataUrl = submitDrawing
+      ? // @ts-expect-error - getDataURL is not in the types
+        canvasRef.current?.getDataURL(
+          "png", // Export canvas data as PNG
+          false, // Export canvas data without background image
+          "#FFFFFF", // Background color
+        )
+      : "";
     const submitData = {
       nickname: data.nickname,
       songs: data.songs.map((song) => {
