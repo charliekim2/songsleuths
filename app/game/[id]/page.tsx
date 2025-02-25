@@ -56,6 +56,9 @@ export default function Home() {
           title={game.name}
           deadline={game.deadline}
           numSongs={game.n_songs}
+          nickname={game.submission?.nickname}
+          songs={game.submission?.songs}
+          drawing={game.submission?.drawing}
         />
       ) : (
         "loading..."

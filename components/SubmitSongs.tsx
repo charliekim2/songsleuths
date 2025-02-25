@@ -117,11 +117,17 @@ export default function SubmitSongs({
   title,
   deadline,
   numSongs,
+  songs,
+  nickname,
+  drawing,
 }: {
   gameId: string;
   title: string;
   deadline: number;
   numSongs: number;
+  nickname: string | undefined;
+  songs: string[] | undefined;
+  drawing: string | undefined;
 }) {
   const formSchema = z.object({
     nickname: z
@@ -134,7 +140,7 @@ export default function SubmitSongs({
           url: z.string().regex(songUrlRegex, "Must be a valid Spotify URL"),
         }),
       )
-      .length(numSongs, "You must submit exactly 3 songs"), // set to songNum from backend
+      .length(numSongs, `You must submit exactly ${numSongs} songs`), // set to songNum from backend
   });
 
   type FormData = z.infer<typeof formSchema>;
@@ -144,11 +150,17 @@ export default function SubmitSongs({
   const [brushRadius, setBrushRadius] = useState(2);
   let submitDrawing = false;
 
+  const songURLs = Array(numSongs).fill({ url: "" });
+  if (songs) {
+    songs.forEach((song, idx) => {
+      songURLs[idx].url = "https://open.spotify.com/track/" + song;
+    });
+  }
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      nickname: "",
-      songs: Array(numSongs).fill({ url: "" }),
+      nickname: nickname ?? "",
+      songs: songURLs,
     },
   });
 
@@ -295,6 +307,7 @@ export default function SubmitSongs({
                               brushColor={brushColor}
                               brushRadius={brushRadius}
                               backgroundColor="#FFFFFF"
+                              imgSrc={drawing ?? ""}
                               canvasWidth={300}
                               canvasHeight={300}
                               lazyRadius={0}
@@ -322,6 +335,7 @@ export default function SubmitSongs({
                                 variant="outline"
                                 onClick={() => {
                                   canvasRef.current?.clear();
+                                  drawing = "";
                                   submitDrawing = false;
                                 }}
                                 className="w-full bg-gray-700 text-white hover:bg-gray-600"

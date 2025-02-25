@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -19,8 +20,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		status, err = post(w, r)
 	} else if r.Method == http.MethodDelete {
 		status, err = remove(w, r)
-	} else if r.Method == http.MethodPatch {
-		status, err = patch(w, r)
 	}
 
 	if err != nil {
@@ -51,15 +50,16 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
-	// TODO: check num songs
-	// Check if before deadline
 	game := &db.Game{}
-	res := conn.First(game, "id = ?", gid)
-	if res.Error != nil {
-		return http.StatusNotFound, res.Error
+	err = conn.First(game, "id = ?", gid).Error
+	if err != nil {
+		return http.StatusNotFound, err
 	}
 	if time.Now().Unix() > int64(game.Deadline) {
 		return http.StatusBadRequest, errors.New("deadline has passed")
+	}
+	if len(submission.Songs) != int(game.NSongs) {
+		return http.StatusBadRequest, errors.New(fmt.Sprintf("number of songs should be %d", game.NSongs))
 	}
 
 	var songs []db.Song
@@ -77,10 +77,18 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 		PlayerID: uid,
 		GameID:   gid,
 		Nickname: submission.Nickname,
-		Songs:    songs, // may need to do association append
+		Songs:    songs,
 		Drawing:  submission.Drawing,
 	}
-	err = conn.Create(&sub).Error
+	oldSub := &db.Submission{}
+	err = conn.Where(&db.Submission{PlayerID: uid, GameID: gid}).Preload("Songs").First(oldSub).Error
+	if err == nil {
+		sub.ID = oldSub.ID
+		for i, _ := range sub.Songs {
+			sub.Songs[i].ID = oldSub.Songs[i].ID
+		}
+	}
+	err = conn.Save(&sub).Error
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
@@ -90,10 +98,5 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 }
 
 func remove(w http.ResponseWriter, r *http.Request) (int, error) {
-	return http.StatusOK, nil
-}
-
-func patch(w http.ResponseWriter, r *http.Request) (int, error) {
-	// TODO: consider doing upsert in post instead
 	return http.StatusOK, nil
 }
