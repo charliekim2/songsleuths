@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -62,15 +61,21 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 		return http.StatusBadRequest, errors.New(fmt.Sprintf("number of songs should be %d", game.NSongs))
 	}
 
+	err = conn.Unscoped().Where("player_id = ? and game_id = ?", uid, gid).Delete(&db.Submission{}).Error
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
 	var songs []db.Song
-	idRegex := regexp.MustCompile(`[a-zA-Z0-9]{22}`)
-	for _, song := range submission.Songs {
-		if !idRegex.MatchString(song) {
-			return http.StatusBadRequest, errors.New("invalid Spotify ID")
-		}
+	covers, err := utils.GetAlbumArt(submission.Songs)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	for _, cover := range covers {
 		songs = append(songs, db.Song{
-			Spotify: song,
-			GameID:  gid,
+			Spotify:  cover.ID,
+			AlbumArt: cover.URL,
+			GameID:   gid,
 		})
 	}
 	sub := db.Submission{
@@ -80,23 +85,52 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 		Songs:    songs,
 		Drawing:  submission.Drawing,
 	}
-	oldSub := &db.Submission{}
-	err = conn.Where(&db.Submission{PlayerID: uid, GameID: gid}).Preload("Songs").First(oldSub).Error
-	if err == nil {
-		sub.ID = oldSub.ID
-		for i, _ := range sub.Songs {
-			sub.Songs[i].ID = oldSub.Songs[i].ID
-		}
+	// oldSub := &db.Submission{}
+	// err = conn.Where(&db.Submission{PlayerID: uid, GameID: gid}).Preload("Songs").First(oldSub).Error
+	// if err == nil {
+	// 	sub.ID = oldSub.ID
+	// 	for i := range sub.Songs {
+	// 		sub.Songs[i].ID = oldSub.Songs[i].ID
+	// 	}
+	// }
+	err = conn.Create(&sub).Error
+	if err != nil {
+		return http.StatusInternalServerError, err
 	}
-	err = conn.Save(&sub).Error
+	// err = conn.Model(&sub).Session(&gorm.Session{FullSaveAssociations: true}).Association("Songs").Replace(songs)
+
+	w.WriteHeader(http.StatusCreated)
+	return 0, nil
+}
+
+func remove(w http.ResponseWriter, r *http.Request) (int, error) {
+	// Get game id and player id, and use them to find submission
+	// Delete submission and songs will be cascade deleted
+	uid, err := utils.Authenticate(r)
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	gid := strings.TrimPrefix(r.URL.Path, "/api/submit/")
+
+	conn, err := db.Connect()
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	return http.StatusCreated, nil
-}
+	game := &db.Game{}
+	err = conn.First(game, "id = ?", gid).Error
+	if err != nil {
+		return http.StatusNotFound, err
+	}
+	if time.Now().Unix() > int64(game.Deadline) {
+		return http.StatusBadRequest, errors.New("deadline has passed")
+	}
 
-func remove(w http.ResponseWriter, r *http.Request) (int, error) {
-	return http.StatusOK, nil
+	err = conn.Unscoped().Where("player_id = ? and game_id = ?", uid, gid).Delete(&db.Submission{}).Error
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	return 0, nil
 }

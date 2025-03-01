@@ -89,6 +89,7 @@ func get(w http.ResponseWriter, r *http.Request) (int, error) {
 		NSongs:   game.NSongs,
 	}
 	if time.Now().Unix() > int64(game.Deadline) {
+		// TODO: check addedSongs flag -> add songs, update flag
 		for _, s := range game.Submissions {
 			for _, songs := range s.Songs {
 				g.Songs = append(g.Songs, songs.Spotify)

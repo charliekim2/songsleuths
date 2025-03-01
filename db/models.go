@@ -19,12 +19,13 @@ type Player struct {
 }
 
 type Game struct {
-	ID       string    `gorm:"primarykey"`
-	Name     string    `gorm:"not null"`
-	Players  []*Player `gorm:"many2many:player_games;"`
-	Deadline uint      `gorm:"not null"`
-	NSongs   uint      `gorm:"not null"`
-	Playlist string    `gorm:"not null"`
+	ID         string    `gorm:"primarykey"`
+	Name       string    `gorm:"not null"`
+	Players    []*Player `gorm:"many2many:player_games;"`
+	Deadline   uint      `gorm:"not null"`
+	NSongs     uint      `gorm:"not null"`
+	Playlist   string    `gorm:"not null"`
+	AddedSongs bool      `gorm:"not null"` // Were songs added to playlist yet or not
 
 	// One-to-many relationships - each game has exactly two tierlists
 	GuessList   Tierlist `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE;"`
@@ -64,12 +65,14 @@ type Submission struct {
 
 	// Unique constraint to ensure one submission per player per game
 	UniqueSubmission string `gorm:"uniqueIndex:idx_player_game"`
+	UniqueNickname   string `gorm:"uniqueIndex:idx_nickname_game"`
 }
 
 type Song struct {
 	gorm.Model
 	SubmissionID uint   `gorm:"not null"`
 	Spotify      string `gorm:"not null"`
+	AlbumArt     string `gorm:"not null"` // Album cover art URL
 	GameID       string `gorm:"not null"` // Added to enforce unique songs per game
 
 	// Unique constraint to prevent duplicate songs in a game
@@ -120,6 +123,7 @@ func (g *Game) BeforeCreate(tx *gorm.DB) error {
 	}
 
 	g.ID = id
+	g.AddedSongs = false
 	g.GuessList = Tierlist{Type: "guess"}
 	g.RankingList = Tierlist{Type: "ranking"}
 	// Populate RankingList with default tiers (S, A, B, C, D)
@@ -133,6 +137,7 @@ func (g *Game) BeforeCreate(tx *gorm.DB) error {
 func (s *Submission) BeforeCreate(tx *gorm.DB) error {
 	// Set the unique constraint value
 	s.UniqueSubmission = fmt.Sprintf("%s-%s", s.PlayerID, s.GameID)
+	s.UniqueNickname = fmt.Sprintf("%s-%s", s.Nickname, s.GameID)
 	return nil
 }
 

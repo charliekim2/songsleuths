@@ -29,7 +29,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { useRef, useState } from "react";
 import ReactCanvasDraw from "react-canvas-draw";
-import { Search } from "lucide-react";
+import { Search, Trash } from "lucide-react";
 import CountdownTimer from "./CountdownTimer";
 import { auth } from "@/components/auth";
 
@@ -133,7 +133,8 @@ export default function SubmitSongs({
     nickname: z
       .string()
       .min(3, "Nickname must be at least 3 characters")
-      .max(10, "Nickname must be 10 characters or less"),
+      .max(10, "Nickname must be 10 characters or less")
+      .regex(/^[a-z0-9]+$/i, "Nickname must contain only letters and numbers"),
     songs: z
       .array(
         z.object({
@@ -148,9 +149,16 @@ export default function SubmitSongs({
   const canvasRef = useRef<ReactCanvasDraw>(null);
   const [brushColor, setBrushColor] = useState("#000000");
   const [brushRadius, setBrushRadius] = useState(2);
-  let submitDrawing = false;
 
-  const songURLs = Array(numSongs).fill({ url: "" });
+  const [img, setImg] = useState(drawing);
+  const [reset, setReset] = useState(0);
+  const [drew, setDrew] = useState(drawing ? true : false);
+
+  const [loading, setLoading] = useState(false);
+
+  const songURLs = Array(numSongs)
+    .fill({})
+    .map(() => ({ url: "" }));
   if (songs) {
     songs.forEach((song, idx) => {
       songURLs[idx].url = "https://open.spotify.com/track/" + song;
@@ -170,11 +178,12 @@ export default function SubmitSongs({
   });
 
   const onSubmit = async (data: FormData) => {
-    const drawingDataUrl = submitDrawing
+    setLoading(true);
+    const drawingDataUrl = drew
       ? // @ts-expect-error - getDataURL is not in the types
         canvasRef.current?.getDataURL(
           "png", // Export canvas data as PNG
-          false, // Export canvas data without background image
+          img ? true : false, // Export canvas data with background image
           "#FFFFFF", // Background color
         )
       : "";
@@ -203,6 +212,27 @@ export default function SubmitSongs({
     } catch (err) {
       console.error(err);
     }
+    setLoading(false);
+  };
+
+  const onDelete = async () => {
+    setLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken(true);
+      const res = await fetch(`/api/submit/${gameId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete songs");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+    window.location.reload();
   };
 
   return (
@@ -303,16 +333,21 @@ export default function SubmitSongs({
                         <div className="flex flex-col sm:flex-row space-x-2">
                           <div className="flex-grow">
                             <ReactCanvasDraw
+                              key={reset}
                               ref={canvasRef}
                               brushColor={brushColor}
                               brushRadius={brushRadius}
                               backgroundColor="#FFFFFF"
-                              imgSrc={drawing ?? ""}
+                              imgSrc={img ?? ""}
                               canvasWidth={300}
                               canvasHeight={300}
                               lazyRadius={0}
                               className="border border-gray-600 rounded-md"
-                              onChange={() => (submitDrawing = true)}
+                              onChange={() => {
+                                if (!drew) {
+                                  setDrew(true);
+                                }
+                              }}
                             />
                           </div>
                           <div className="w-72 space-y-4">
@@ -334,9 +369,12 @@ export default function SubmitSongs({
                                 type="button"
                                 variant="outline"
                                 onClick={() => {
-                                  canvasRef.current?.clear();
-                                  drawing = "";
-                                  submitDrawing = false;
+                                  const curr = canvasRef.current;
+                                  if (!curr) return;
+                                  curr.clear();
+                                  setImg("");
+                                  setDrew(false);
+                                  setReset(reset + 1);
                                 }}
                                 className="w-full bg-gray-700 text-white hover:bg-gray-600"
                               >
@@ -366,12 +404,22 @@ export default function SubmitSongs({
                 )}
               />
               <br />
-              <Button
-                type="submit"
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                Submit Songs
-              </Button>
+              <div className="flex space-x-2">
+                <Button
+                  type="submit"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  disabled={loading}
+                >
+                  Submit Songs
+                </Button>
+                <Button
+                  className="bg-red-500"
+                  disabled={loading}
+                  onClick={onDelete}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
             </form>
           </Form>
         </CardContent>

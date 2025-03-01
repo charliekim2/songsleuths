@@ -134,10 +134,107 @@ func Search(query string, limit int) (*SearchResult, error) {
 	return &result, nil
 }
 
+type uris struct {
+	URIs []string `json:"uris"`
+}
+
 func AddToPlaylist(songs []string, playlist string) error {
+	tok, err := RefreshToken()
+	if err != nil {
+		return err
+	}
+
+	addSongs := uris{
+		URIs: []string{},
+	}
+	for _, songId := range songs {
+		addSongs.URIs = append(addSongs.URIs, "spotify:track:"+songId)
+	}
+	body, err := json.Marshal(&addSongs)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", "https://api.spotify.com/v1/playlists/"+playlist+"/tracks", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+tok)
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return errors.New("Spotify rejected playlist creation request")
+	}
 	return nil
 }
 
-func RemoveFromPlaylist(songs []string, playlist string) error {
-	return nil
+type TrackResult struct {
+	Tracks []struct {
+		Album struct {
+			Images []struct {
+				URL string `json:"url"`
+			} `json:"images"`
+		} `json:"album"`
+		ID string `json:"id"`
+	} `json:"tracks"`
+}
+
+type AlbumArt struct {
+	ID  string
+	URL string
+}
+
+func GetAlbumArt(songs []string) ([]AlbumArt, error) {
+	token, err := appToken()
+	if err != nil {
+		return nil, err
+	}
+
+	url := "https://api.spotify.com/v1/tracks?ids=" + strings.Join(songs, ",")
+	auth := "Bearer " + token
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", auth)
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.New("Spotify rejected search request")
+	}
+
+	result := TrackResult{}
+	err = json.NewDecoder(res.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	covers := []AlbumArt{}
+	for _, t := range result.Tracks {
+		if len(t.Album.Images) > 0 {
+			covers = append(covers, AlbumArt{
+				ID:  t.ID,
+				URL: t.Album.Images[0].URL,
+			})
+		} else {
+			covers = append(covers, AlbumArt{
+				ID:  t.ID,
+				URL: "",
+			})
+		}
+	}
+
+	return covers, nil
 }

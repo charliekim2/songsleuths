@@ -36,6 +36,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { auth } from "@/components/auth";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const formSchema = z
   .object({
@@ -66,6 +68,8 @@ const formSchema = z
 type FormData = z.infer<typeof formSchema>;
 
 export default function CreateGame() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -77,6 +81,7 @@ export default function CreateGame() {
   });
 
   const onSubmit = async (data: FormData) => {
+    setLoading(true);
     const combinedDeadline = new Date(data.deadline);
     const [hours, minutes] = data.deadlineTime.split(":");
     combinedDeadline.setHours(Number.parseInt(hours), Number.parseInt(minutes));
@@ -101,9 +106,11 @@ export default function CreateGame() {
       }
       const game = await res.json();
       console.log("Game created:", game);
+      router.push(`/game/${game.id}`);
     } catch (err) {
       console.error(err);
     }
+    setLoading(false);
   };
 
   return (
@@ -228,6 +235,7 @@ export default function CreateGame() {
               <Button
                 type="submit"
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={loading}
               >
                 Create Game
               </Button>
