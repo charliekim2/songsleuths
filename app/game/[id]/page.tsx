@@ -6,6 +6,7 @@ import { auth } from "@/components/auth";
 import { useParams, useRouter } from "next/navigation";
 import { Dispatch, SetStateAction } from "react";
 import { User } from "firebase/auth";
+import Ranking from "@/components/Ranking";
 
 async function GetGame(
   gameId: string,
@@ -51,15 +52,24 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-8 py-8">
       {loggedIn && game ? (
-        <SubmitSongs
-          gameId={game.id}
-          title={game.name}
-          deadline={game.deadline}
-          numSongs={game.n_songs}
-          nickname={game.submission?.nickname}
-          songs={game.submission?.songs}
-          drawing={game.submission?.drawing}
-        />
+        game.deadline > Date.now() / 1000 ? (
+          <SubmitSongs
+            gameId={game.id}
+            title={game.name}
+            deadline={game.deadline}
+            numSongs={game.n_songs}
+            nickname={game.submission?.nickname}
+            songs={game.submission?.songs}
+            drawing={game.submission?.drawing}
+          />
+        ) : (
+          <Ranking
+            guess={game.guess_list}
+            ranking={game.ranking_list}
+            playlist={game.playlist ?? ""}
+            songs={game.songs}
+          />
+        )
       ) : (
         "loading..."
       )}

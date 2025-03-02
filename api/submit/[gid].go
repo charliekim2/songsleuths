@@ -85,27 +85,16 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 		Songs:    songs,
 		Drawing:  submission.Drawing,
 	}
-	// oldSub := &db.Submission{}
-	// err = conn.Where(&db.Submission{PlayerID: uid, GameID: gid}).Preload("Songs").First(oldSub).Error
-	// if err == nil {
-	// 	sub.ID = oldSub.ID
-	// 	for i := range sub.Songs {
-	// 		sub.Songs[i].ID = oldSub.Songs[i].ID
-	// 	}
-	// }
 	err = conn.Create(&sub).Error
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
-	// err = conn.Model(&sub).Session(&gorm.Session{FullSaveAssociations: true}).Association("Songs").Replace(songs)
 
 	w.WriteHeader(http.StatusCreated)
 	return 0, nil
 }
 
 func remove(w http.ResponseWriter, r *http.Request) (int, error) {
-	// Get game id and player id, and use them to find submission
-	// Delete submission and songs will be cascade deleted
 	uid, err := utils.Authenticate(r)
 	if err != nil {
 		return http.StatusUnauthorized, err

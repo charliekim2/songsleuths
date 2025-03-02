@@ -5,12 +5,18 @@ interface Game {
   n_songs: number;
 
   submission?: Submission;
-  player_list?: Submission[];
+  // player_list?: Submission[];
 
   guess_list?: Tierlist;
   ranking_list?: Tierlist;
   playlist?: string;
-  songs?: string[];
+  songs?: Song[];
+}
+
+interface Song {
+  id: number;
+  spotify: string;
+  album_art: string;
 }
 
 interface Tierlist {

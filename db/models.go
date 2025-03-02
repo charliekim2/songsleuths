@@ -28,8 +28,10 @@ type Game struct {
 	AddedSongs bool      `gorm:"not null"` // Were songs added to playlist yet or not
 
 	// One-to-many relationships - each game has exactly two tierlists
-	GuessList   Tierlist `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE;"`
-	RankingList Tierlist `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE;"`
+	Tierlists []Tierlist `gorm:"constraint:OnDelete:CASCADE;"`
+	// GuessList   Tierlist   `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE;"`
+	// RankingList Tierlist   `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE;"`
+	Rankings []Ranking `gorm:"constraint:OnDelete:CASCADE;"`
 
 	// One-to-many relationship with submissions
 	Submissions []Submission `gorm:"constraint:OnDelete:CASCADE;"`
@@ -47,12 +49,10 @@ type Tierlist struct {
 
 type Tier struct {
 	gorm.Model
-	Name       string `gorm:"not null"`
-	Rank       int    `gorm:"not null"` // Lower number = higher rank
-	TierlistID uint   `gorm:"not null"`
-
-	// One-to-many relationship
-	Rankings []Ranking `gorm:"constraint:OnDelete:CASCADE;"`
+	Name         string `gorm:"not null"`
+	Rank         int    `gorm:"not null"` // Lower number = higher rank
+	TierlistID   uint   `gorm:"not null"`
+	SubmissionID *uint  // For guess list, associate player tier w/ their submission
 }
 
 type Submission struct {
@@ -62,6 +62,7 @@ type Submission struct {
 	Nickname string `gorm:"not null"`
 	Songs    []Song `gorm:"constraint:OnDelete:CASCADE;"`
 	Drawing  string `gorm:"not null"`
+	Tier     Tier   `gorm:"constraint:OnDelete:CASCADE;"`
 
 	// Unique constraint to ensure one submission per player per game
 	UniqueSubmission string `gorm:"uniqueIndex:idx_player_game"`
@@ -77,26 +78,21 @@ type Song struct {
 
 	// Unique constraint to prevent duplicate songs in a game
 	UniqueSong string `gorm:"uniqueIndex:idx_game_song"`
-
-	// One-to-many relationship with rankings
-	Rankings []Ranking `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 type Ranking struct {
 	gorm.Model
 	PlayerID   string `gorm:"not null"`
 	TierlistID uint   `gorm:"not null"`
-	TierID     uint   `gorm:"not null"`
-	SongID     uint   `gorm:"not null"`
+	GameID     string `gorm:"not null"`
+	Ranking    string `gorm:"not null"` // JSON tier: []songs
 
-	// Unique constraint to ensure one ranking per player per song per tierlist
-	UniqueRanking string `gorm:"uniqueIndex:idx_player_tierlist_song"`
+	// Unique constraint to ensure one ranking per player per tierlist
+	UniqueRanking string `gorm:"uniqueIndex:idx_player_tierlist"`
 
 	// Foreign key constraints
 	Player   Player   `gorm:"constraint:OnDelete:CASCADE;"`
 	Tierlist Tierlist `gorm:"constraint:OnDelete:CASCADE;"`
-	Tier     Tier     `gorm:"constraint:OnDelete:CASCADE;"`
-	Song     Song     `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 // Hooks to enforce business rules
@@ -124,12 +120,13 @@ func (g *Game) BeforeCreate(tx *gorm.DB) error {
 
 	g.ID = id
 	g.AddedSongs = false
-	g.GuessList = Tierlist{Type: "guess"}
-	g.RankingList = Tierlist{Type: "ranking"}
+	g.Tierlists = append(g.Tierlists, Tierlist{Type: "guess"})
+	ranking := Tierlist{Type: "ranking"}
 	// Populate RankingList with default tiers (S, A, B, C, D)
 	for i, tier := range []string{"S", "A", "B", "C", "D"} {
-		g.RankingList.Tiers = append(g.RankingList.Tiers, Tier{Name: tier, Rank: i})
+		ranking.Tiers = append(ranking.Tiers, Tier{Name: tier, Rank: i})
 	}
+	g.Tierlists = append(g.Tierlists, ranking)
 
 	return nil
 }
@@ -138,8 +135,41 @@ func (s *Submission) BeforeCreate(tx *gorm.DB) error {
 	// Set the unique constraint value
 	s.UniqueSubmission = fmt.Sprintf("%s-%s", s.PlayerID, s.GameID)
 	s.UniqueNickname = fmt.Sprintf("%s-%s", s.Nickname, s.GameID)
+
+	// Create tier in guesslist associated with submission
+	var tierlist Tierlist
+	err := tx.Where("type = ? and game_id = ?", "guess", s.GameID).First(&tierlist).Error
+	if err != nil {
+		return err
+	}
+	tier := Tier{
+		Name:       s.Nickname,
+		Rank:       0,
+		TierlistID: tierlist.ID,
+	}
+	s.Tier = tier
+
 	return nil
 }
+
+// func (s *Submission) AfterCreate(tx *gorm.DB) error {
+// 	// Create tier in guesslist associated with submission
+// 	var tierlist Tierlist
+// 	err := tx.Where("type = ? and game_id = ?", "guess", s.GameID).First(&tierlist).Error
+// 	if err != nil {
+// 		return err
+// 	}
+// 	tier := Tier{
+// 		Name:         s.Nickname,
+// 		Rank:         0,
+// 		SubmissionID: &s.ID,
+// 		TierlistID:   tierlist.ID,
+// 	}
+// 	if err = tx.Create(tier).Error; err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 func (s *Song) BeforeCreate(tx *gorm.DB) error {
 	// Get the GameID from the associated Submission
@@ -168,33 +198,15 @@ func (s *Song) BeforeCreate(tx *gorm.DB) error {
 
 func (r *Ranking) BeforeCreate(tx *gorm.DB) error {
 	// Set the unique constraint value
-	r.UniqueRanking = fmt.Sprintf("%s-%d-%d", r.PlayerID, r.TierlistID, r.SongID)
+	r.UniqueRanking = fmt.Sprintf("%s-%d", r.PlayerID, r.TierlistID)
 
-	// Verify that the Tier belongs to the Tierlist
-	var count int64
-	if err := tx.Model(&Tier{}).
-		Where("id = ? AND tierlist_id = ?", r.TierID, r.TierlistID).
-		Count(&count).Error; err != nil {
-		return err
-	}
-	if count == 0 {
-		return errors.New("tier must belong to the specified tierlist")
-	}
-
-	// Verify that the Player is part of the Game associated with the Tierlist
+	// Check Tierlist is part of game
 	var tierlist Tierlist
 	if err := tx.First(&tierlist, r.TierlistID).Error; err != nil {
 		return err
 	}
-
-	var playerCount int64
-	if err := tx.Table("player_games").
-		Where("player_id = ? AND game_id = ?", r.PlayerID, tierlist.GameID).
-		Count(&playerCount).Error; err != nil {
-		return err
-	}
-	if playerCount == 0 {
-		return errors.New("player must be part of the game to create rankings")
+	if tierlist.GameID != r.GameID {
+		return errors.New("tierlist does not belong to game")
 	}
 
 	return nil

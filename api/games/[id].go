@@ -9,6 +9,7 @@ import (
 
 	"github.com/charliekim2/songsleuths/db"
 	"github.com/charliekim2/songsleuths/utils"
+	"gorm.io/gorm/clause"
 )
 
 type Game struct {
@@ -20,15 +21,21 @@ type Game struct {
 	// The requesting players submission
 	Submission *Submission `json:"submission,omitempty"`
 	// The other players who submitted
-	PlayerList []struct {
-		Nickname string `json:"nickname"`
-		Drawing  string `json:"drawing"`
-	} `json:"player_list,omitempty"`
+	// PlayerList []struct {
+	// 	Nickname string `json:"nickname"`
+	// 	Drawing  string `json:"drawing"`
+	// } `json:"player_list,omitempty"`
 
 	GuessList   *Tierlist `json:"guess_list,omitempty"`
 	RankingList *Tierlist `json:"ranking_list,omitempty"`
 	Playlist    string    `json:"playlist,omitempty"`
-	Songs       []string  `json:"songs,omitempty"`
+	Songs       []Song    `json:"songs,omitempty"`
+}
+
+type Song struct {
+	ID       uint   `json:"id"`
+	Spotify  string `json:"spotify"`
+	AlbumArt string `json:"album_art"`
 }
 
 type Tierlist struct {
@@ -56,9 +63,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		status, err = get(w, r)
 	}
-	// } else if r.Method == http.MethodPatch {
-	// 	status, err = patch(w, r)
-	// }
 
 	if err != nil {
 		http.Error(w, err.Error(), status)
@@ -77,7 +81,7 @@ func get(w http.ResponseWriter, r *http.Request) (int, error) {
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
-	res := conn.First(game, "id = ?", gid)
+	res := conn.Preload("Tierlists.Tiers").Preload("Submissions.Songs").Preload(clause.Associations).First(game, "id = ?", gid)
 	if res.Error != nil {
 		return http.StatusNotFound, res.Error
 	}
@@ -90,30 +94,51 @@ func get(w http.ResponseWriter, r *http.Request) (int, error) {
 	}
 	if time.Now().Unix() > int64(game.Deadline) {
 		// TODO: check addedSongs flag -> add songs, update flag
+		g.Songs = []Song{}
+		g.GuessList = &Tierlist{Tiers: []Tier{}}
+		g.RankingList = &Tierlist{Tiers: []Tier{}}
 		for _, s := range game.Submissions {
-			for _, songs := range s.Songs {
-				g.Songs = append(g.Songs, songs.Spotify)
+			for _, song := range s.Songs {
+				g.Songs = append(g.Songs, Song{
+					ID:       song.ID,
+					Spotify:  song.Spotify,
+					AlbumArt: song.AlbumArt,
+				})
 			}
 		}
-		g.GuessList = &Tierlist{}
-		g.GuessList.ID = game.GuessList.ID
-		g.GuessList.Type = game.GuessList.Type
-		for _, tier := range game.GuessList.Tiers {
-			g.GuessList.Tiers = append(g.GuessList.Tiers, Tier{
-				ID:   tier.ID,
-				Name: tier.Name,
-				Rank: tier.Rank,
-			})
+		if !game.AddedSongs {
+			err = addSongs(g.Songs, game.Playlist)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			err = conn.Model(&db.Game{ID: game.ID}).Update("added_songs", true).Error
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
 		}
-		g.RankingList = &Tierlist{}
-		g.RankingList.ID = game.RankingList.ID
-		g.RankingList.Type = game.RankingList.Type
-		for _, tier := range game.RankingList.Tiers {
-			g.RankingList.Tiers = append(g.RankingList.Tiers, Tier{
-				ID:   tier.ID,
-				Name: tier.Name,
-				Rank: tier.Rank,
-			})
+		for _, list := range game.Tierlists {
+			if list.Type == "guess" {
+				g.GuessList.ID = list.ID
+				g.GuessList.Type = list.Type
+				for _, tier := range list.Tiers {
+					g.GuessList.Tiers = append(g.GuessList.Tiers, Tier{
+						ID:   tier.ID,
+						Name: tier.Name,
+						Rank: tier.Rank,
+					})
+				}
+			}
+			if list.Type == "ranking" {
+				g.RankingList.ID = list.ID
+				g.RankingList.Type = list.Type
+				for _, tier := range list.Tiers {
+					g.RankingList.Tiers = append(g.RankingList.Tiers, Tier{
+						ID:   tier.ID,
+						Name: tier.Name,
+						Rank: tier.Rank,
+					})
+				}
+			}
 		}
 		g.Playlist = game.Playlist
 	} else {
@@ -130,10 +155,21 @@ func get(w http.ResponseWriter, r *http.Request) (int, error) {
 			}
 		}
 	}
-	// TODO: Check if player submitted rankings, and if so, return answers
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(g)
 	return http.StatusOK, nil
+}
+
+func addSongs(songs []Song, playlist string) error {
+	songIds := []string{}
+	for _, song := range songs {
+		songIds = append(songIds, song.Spotify)
+	}
+	err := utils.AddToPlaylist(songIds, playlist)
+	if err != nil {
+		return err
+	}
+	return nil
 }
