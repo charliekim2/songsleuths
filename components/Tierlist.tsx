@@ -119,6 +119,7 @@ export default function TierList({
     },
   );
 
+  // eslint-disable-next-line
   const onDragEnd = (result: any) => {
     const { source, destination } = result;
 

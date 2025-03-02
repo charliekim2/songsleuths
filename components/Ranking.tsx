@@ -1,5 +1,4 @@
 import Link from "next/link";
-import CountdownTimer from "./CountdownTimer";
 import TierList from "./Tierlist";
 import { Button } from "./ui/button";
 
