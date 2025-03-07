@@ -16,8 +16,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodPost {
 		status, err = post(w, r)
-	} else if r.Method == http.MethodDelete {
-		status, err = remove(w, r)
 	}
 
 	if err != nil {
