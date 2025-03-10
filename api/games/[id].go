@@ -36,6 +36,7 @@ type Song struct {
 	ID       uint   `json:"id"`
 	Spotify  string `json:"spotify"`
 	AlbumArt string `json:"album_art"`
+	Name     string `json:"name"`
 }
 
 type Tierlist struct {
@@ -45,9 +46,10 @@ type Tierlist struct {
 }
 
 type Tier struct {
-	ID   uint   `json:"id"`
-	Name string `json:"name"`
-	Rank int    `json:"rank"`
+	ID      uint   `json:"id"`
+	Name    string `json:"name"`
+	Rank    int    `json:"rank"`
+	Drawing string `json:"drawing,omitempty"`
 }
 
 type Submission struct {
@@ -93,19 +95,24 @@ func get(w http.ResponseWriter, r *http.Request) (int, error) {
 		NSongs:   game.NSongs,
 	}
 	if time.Now().Unix() > int64(game.Deadline) {
-		// TODO: check addedSongs flag -> add songs, update flag
 		g.Songs = []Song{}
 		g.GuessList = &Tierlist{Tiers: []Tier{}}
 		g.RankingList = &Tierlist{Tiers: []Tier{}}
+		// map nicknames to drawings, then set drawings on guess tiers
+		drawings := make(map[string]string)
 		for _, s := range game.Submissions {
+			drawings[s.Nickname] = s.Drawing
 			for _, song := range s.Songs {
 				g.Songs = append(g.Songs, Song{
 					ID:       song.ID,
 					Spotify:  song.Spotify,
 					AlbumArt: song.AlbumArt,
+					Name:     song.Name,
 				})
 			}
 		}
+
+		// Add songs to Spotify playlist
 		if !game.AddedSongs {
 			err = addSongs(g.Songs, game.Playlist)
 			if err != nil {
@@ -116,15 +123,18 @@ func get(w http.ResponseWriter, r *http.Request) (int, error) {
 				return http.StatusInternalServerError, err
 			}
 		}
+
+		// Populate guess and ranking list data
 		for _, list := range game.Tierlists {
 			if list.Type == "guess" {
 				g.GuessList.ID = list.ID
 				g.GuessList.Type = list.Type
 				for _, tier := range list.Tiers {
 					g.GuessList.Tiers = append(g.GuessList.Tiers, Tier{
-						ID:   tier.ID,
-						Name: tier.Name,
-						Rank: tier.Rank,
+						ID:      tier.ID,
+						Name:    tier.Name,
+						Rank:    tier.Rank,
+						Drawing: drawings[tier.Name],
 					})
 				}
 			}

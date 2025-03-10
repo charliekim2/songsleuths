@@ -181,13 +181,15 @@ type TrackResult struct {
 				URL string `json:"url"`
 			} `json:"images"`
 		} `json:"album"`
-		ID string `json:"id"`
+		ID   string `json:"id"`
+		Name string `json:"name"`
 	} `json:"tracks"`
 }
 
 type AlbumArt struct {
-	ID  string
-	URL string
+	ID   string
+	URL  string
+	Name string // show song name on hover
 }
 
 func GetAlbumArt(songs []string) ([]AlbumArt, error) {
@@ -225,8 +227,9 @@ func GetAlbumArt(songs []string) ([]AlbumArt, error) {
 	for _, t := range result.Tracks {
 		if len(t.Album.Images) > 0 {
 			covers = append(covers, AlbumArt{
-				ID:  t.ID,
-				URL: t.Album.Images[0].URL,
+				ID:   t.ID,
+				URL:  t.Album.Images[0].URL,
+				Name: t.Name,
 			})
 		} else {
 			covers = append(covers, AlbumArt{

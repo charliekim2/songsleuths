@@ -17,6 +17,7 @@ interface Song {
   id: number;
   spotify: string;
   album_art: string;
+  name: string;
 }
 
 interface Tierlist {
@@ -29,6 +30,7 @@ interface Tier {
   id: string;
   name: string;
   rank: number;
+  drawing?: string;
 }
 
 interface Submission {

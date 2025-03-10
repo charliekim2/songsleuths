@@ -3,8 +3,13 @@
 import { useState, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
 import Image from "next/image";
+import {
+  TooltipContent,
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 interface TierListState {
   [tierId: string]: string[]; // Maps tier IDs to arrays of item IDs
@@ -20,52 +25,34 @@ interface DragResult {
   [tierId: string]: string[]; // Maps tier IDs to arrays of item IDs
 }
 
-// Dummy function for playing songs
-const playSong = (songId: string) => {
-  console.log(`Playing song with ID: ${songId}`);
-};
-
 function DraggableItem({ item, index }: { item: Song; index: number }) {
-  const [isHovered, setIsHovered] = useState(false);
-
   return (
     <Draggable draggableId={item.id.toString()} index={index}>
       {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          className={`group relative w-20 h-20 rounded-lg overflow-hidden ${
-            snapshot.isDragging ? "ring-2 ring-purple-500" : ""
-          }`}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          <Image
-            src={item.album_art || "/placeholder.svg"}
-            alt=""
-            fill
-            className="object-cover"
-          />
-          <div
-            className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity ${
-              isHovered ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 text-white hover:bg-white/20"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                playSong(item.spotify);
-              }}
-            >
-              <Play className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <div
+                ref={provided.innerRef}
+                {...provided.draggableProps}
+                {...provided.dragHandleProps}
+                className={`group relative w-20 h-20 rounded-lg overflow-hidden ${
+                  snapshot.isDragging ? "ring-2 ring-purple-500" : ""
+                }`}
+              >
+                <Image
+                  src={item.album_art || "/placeholder.svg"}
+                  alt={item.name}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{item.name}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </Draggable>
   );
@@ -183,9 +170,22 @@ export default function TierList({
           .map((tier) => (
             <div key={tier.id} className="flex mb-2">
               <div className="w-24 bg-gray-700 flex items-center justify-center p-4 rounded-l-lg">
-                <span className="text-xl font-bold text-white">
-                  {tier.name}
-                </span>
+                {tier.drawing ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <img src={tier.drawing} alt={tier.name}></img>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{tier.name}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span className="text-xl font-bold text-white">
+                    {tier.name}
+                  </span>
+                )}
               </div>
               <Droppable
                 droppableId={tier.id.toString()}

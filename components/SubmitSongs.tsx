@@ -86,7 +86,7 @@ function SearchDropdown({ onSelect }: { onSelect: (url: string) => void }) {
             className="cursor-pointer hover:bg-gray-700 focus:bg-gray-700"
           >
             <div className="font-semibold text-white">{result.name}</div>
-            <div className="text-sm text-gray-400">{result.artists}</div>
+            <div className="text-sm text-gray-400">{result.artists.join()}</div>
           </DropdownMenuItem>
         ))}
       </ul>

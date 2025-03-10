@@ -75,6 +75,7 @@ func post(w http.ResponseWriter, r *http.Request) (int, error) {
 		songs = append(songs, db.Song{
 			Spotify:  cover.ID,
 			AlbumArt: cover.URL,
+			Name:     cover.Name,
 			GameID:   gid,
 		})
 	}

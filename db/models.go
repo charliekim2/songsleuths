@@ -74,6 +74,7 @@ type Song struct {
 	SubmissionID uint   `gorm:"not null"`
 	Spotify      string `gorm:"not null"`
 	AlbumArt     string `gorm:"not null"` // Album cover art URL
+	Name         string `gorm:"not null"`
 	GameID       string `gorm:"not null"` // Added to enforce unique songs per game
 
 	// Unique constraint to prevent duplicate songs in a game

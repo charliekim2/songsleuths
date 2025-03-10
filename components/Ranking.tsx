@@ -1,6 +1,4 @@
-import Link from "next/link";
 import TierList from "./Tierlist";
-import { Button } from "./ui/button";
 
 interface RankingProps {
   guess?: Tierlist;
@@ -20,12 +18,17 @@ export default function Ranking({
   }
   const initState = JSON.parse(localStorage.getItem("list_state") ?? "{}");
   return (
-    <div>
-      <Button asChild>
-        <Link href={`https://open.spotify.com/playlist/${playlist}`}>
-          Spotify Playlist
-        </Link>
-      </Button>
+    <div className="space-y-4">
+      <div className="w-full max-w-4xl mx-auto bg-gray-800 p-6 rounded-lg">
+        <iframe
+          src={`https://open.spotify.com/embed/playlist/${playlist}?utm_source=generator`}
+          width="100%"
+          height="352"
+          allowFullScreen={false}
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy"
+        ></iframe>
+      </div>
       <TierList data={guess} items={songs} />
       <TierList data={ranking} items={songs} initialState={initState} />
     </div>

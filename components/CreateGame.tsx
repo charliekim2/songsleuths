@@ -44,7 +44,11 @@ const formSchema = z
     gameTitle: z
       .string()
       .min(1, "Game title is required")
-      .max(50, "Game title must be 50 characters or less"),
+      .max(50, "Game title must be 50 characters or less")
+      .regex(
+        /^[a-z0-9 ]+$/i,
+        "Game title must contain only letters and numbers",
+      ),
     deadline: z.date(),
     deadlineTime: z
       .string()
